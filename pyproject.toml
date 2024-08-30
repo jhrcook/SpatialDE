@@ -11,12 +11,13 @@ authors = [
 classifiers = ["Private :: Do Not Upload"]
 dynamic = ["version", "description"]
 dependencies = [
-    'Click',
-    'NaiveDE >= 1.2.0',
-    'numpy >= 1.26.0',
-    'pandas >= 2.0.0',
-    'scipy >= 1.12.0',
-    'tqdm',
+    "anndata",
+    "Click",
+    "NaiveDE >= 1.2.0",
+    "numpy >= 1.26.0",
+    "pandas >= 2.0.0",
+    "scipy >= 1.12.0",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
@@ -55,10 +56,12 @@ lint.pydocstyle = { convention = "google" }
 target-version = "py311"
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/*.py" = ["UP007"]
-"squirmy_wormy/cli/*.py" = ["UP007"]
+# "scripts/*.py" = ["UP007"]
+# "spatialde/cli/*.py" = ["UP007"]
 "__init__.py" = ["F401"]
-"notebook/*ipynb" = ["D103"]
+"spatialde/base.py" = ["N802", "N803", "N806"]
+"spatialde/aha.py" = ["N802", "N803", "N806"]
+"spatialde/aeh.py" = ["N802", "N803", "N806"]
 
 
 [tool.mypy]
@@ -74,5 +77,5 @@ warn_no_return = true
 # python_executable = ""
 
 [[tool.mypy.overrides]]
-module = ["pandas", "anndata", "scanpy", "scipy", "squidpy"]
+module = ["pandas", "anndata", "scanpy", "scipy", "squidpy", "NaiveDE", "click"]
 ignore_missing_imports = true

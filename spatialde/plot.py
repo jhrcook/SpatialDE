@@ -1,22 +1,31 @@
+"""Plots."""
+
+from collections.abc import Collection
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
 def xpercent_scale():
-    """Helper function to format X-axis to percent tick labels"""
+    """Helper function to format X-axis to percent tick labels."""
     plt.gca().set_xticklabels([f"{x*100:.0f}%" for x in plt.gca().get_xticks()])
 
 
-def FSV_sig(
-    results, ms_results=None, certain_only=False, covariate_names=["log_total_count"]
+def fsv_sig(
+    results,
+    ms_results=None,
+    certain_only=False,
+    covariate_names: Collection[str] = ("log_total_count",),
 ):
-    """Make a plot of Fraction Spatial Variance vs Q-value
+    """Make a plot of Fraction Spatial Variance vs Q-value.
 
-    Optionally provide model selection results to the function will color points by model.
+    Optionally provide model selection results to the function will color points by
+    model.
 
     Point size correspond to certinety of the FSV value.
     """
+    covariate_names = set(covariate_names)
     plt.yscale("log")
 
     results = results.copy()
@@ -80,14 +89,14 @@ def FSV_sig(
         covariates["FSV"], covariates["pval"], marker="x", c="k", s=50, label=None
     )
 
-    FDR_lim = results.query("qval < 0.05")["pval"].max()
-    plt.axhline(FDR_lim, ls="--", c="k", lw=1, label="FDR = 0.05")
+    fdr_lim = results.query("qval < 0.05")["pval"].max()
+    plt.axhline(fdr_lim, ls="--", c="k", lw=1, label="FDR = 0.05")
 
     # Label axes
     plt.xlabel("Fraction spatial variance")
     plt.ylabel("P-value")
     plt.gca().invert_yaxis()
 
-    lgd = plt.legend(scatterpoints=3, loc="upper left", bbox_to_anchor=[1.0, 1.0])
+    plt.legend(scatterpoints=3, loc="upper left", bbox_to_anchor=[1.0, 1.0])
 
     xpercent_scale()

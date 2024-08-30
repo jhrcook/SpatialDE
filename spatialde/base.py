@@ -19,6 +19,7 @@ from .util import qvalue
 
 
 def get_l_limits(X):
+    """Get `l` limits."""
     Xsq = np.sum(np.square(X), 1)
     R2 = -2.0 * np.dot(X, X.T) + (Xsq[:, None] + Xsq[None, :])
     R2 = np.clip(R2, 0, np.inf)
@@ -35,6 +36,7 @@ def get_l_limits(X):
 
 
 def SE_kernel(X, l):
+    """SE kernel."""
     X = np.array(X)
     Xsq = np.sum(np.square(X), 1)
     R2 = -2.0 * np.dot(X, X.T) + (Xsq[:, None] + Xsq[None, :])
@@ -43,12 +45,13 @@ def SE_kernel(X, l):
 
 
 def linear_kernel(X):
+    """Calculate the linear kernel function."""
     K = np.dot(X, X.T)
     return K / K.max()
 
 
 def cosine_kernel(X, p):
-    """Periodic kernel as l -> oo in [Lloyd et al 2014]
+    """Periodic kernel as l -> oo in [Lloyd et al 2014].
 
     Easier interpretable composability with SE?
     """
@@ -60,9 +63,9 @@ def cosine_kernel(X, p):
 
 
 def gower_scaling_factor(K):
-    """Gower normalization factor for covariance matric K
+    """Gower normalization factor for covariance metric K.
 
-    Based on https://github.com/PMBio/limix/blob/master/limix/utils/preprocess.py
+    Based on https://github.com/PMBio/limix/blob/master/limix/utils/preprocess.py.
     """
     n = K.shape[0]
     P = np.eye(n) - np.ones((n, n)) / n
@@ -73,16 +76,19 @@ def gower_scaling_factor(K):
 
 
 def factor(K):
+    """Factor `K`."""
     S, U = np.linalg.eigh(K)
     # .clip removes negative eigenvalues
     return U, np.clip(S, 1e-8, None)
 
 
 def get_UT1(U):
+    """Get UT1."""
     return U.sum(0)
 
 
 def get_UTy(U, y):
+    """Get UTy."""
     return y.dot(U)
 
 
@@ -99,7 +105,7 @@ def mu_hat(delta, UTy, UT1, S, n, Yvar=None):
 
 
 def s2_t_hat(delta, UTy, S, n, Yvar=None):
-    """ML Estimate of structured noise, function of delta"""
+    """MLE of structured noise, function of delta."""
     if Yvar is None:
         Yvar = np.ones_like(S)
 
@@ -110,9 +116,8 @@ def s2_t_hat(delta, UTy, S, n, Yvar=None):
 def LL(delta, UTy, UT1, S, n, Yvar=None):
     """Log-likelihood of GP model as a function of delta.
 
-    The parameter delta is the ratio s2_e / s2_t, where s2_e is the
-    observation noise and s2_t is the noise explained by covariance
-    in time or space.
+    The parameter delta is the ratio s2_e / s2_t, where s2_e is the observation noise
+    and s2_t is the noise explained by covariance in time or space.
     """
     mu_h = mu_hat(delta, UTy, UT1, S, n, Yvar)
 
@@ -132,6 +137,8 @@ def logdelta_prior_lpdf(log_delta):
 
 
 def make_objective(UTy, UT1, S, n, Yvar=None):
+    """Make objective function."""
+
     def LL_obj(log_delta):
         return -LL(np.exp(log_delta), UTy, UT1, S, n, Yvar)
 
@@ -205,6 +212,8 @@ def search_max_LL(UTy, UT1, S, n, num=32):
 
 
 def make_FSV(UTy, S, n, Gower):
+    """Make FSV."""
+
     def FSV(log_delta):
         s2_t = s2_t_hat(np.exp(log_delta), UTy, S, n)
         s2_t_g = s2_t * Gower
@@ -215,7 +224,7 @@ def make_FSV(UTy, S, n, Gower):
 
 
 def lengthscale_fits(exp_tab, U, UT1, S, Gower, num=64):
-    """Fit GPs after pre-processing for particular lengthscale"""
+    """Fit GPs after pre-processing for particular lengthscale."""
     results = []
     n, G = exp_tab.shape
     for g in tqdm(range(G), leave=False):
@@ -252,7 +261,7 @@ def lengthscale_fits(exp_tab, U, UT1, S, Gower, num=64):
 
 
 def null_fits(exp_tab):
-    """Get maximum LL for null model"""
+    """Get maximum LL for null model."""
     results = []
     n, G = exp_tab.shape
     for g in range(G):
@@ -277,7 +286,7 @@ def null_fits(exp_tab):
 
 
 def const_fits(exp_tab):
-    """Get maximum LL for const model"""
+    """Get maximum LL for const model."""
     results = []
     n, G = exp_tab.shape
     for g in range(G):
@@ -304,18 +313,19 @@ def const_fits(exp_tab):
     return pd.DataFrame(results)
 
 
-def simulate_const_model(MLL_params, N):
+def simulate_const_model(MLL_params, N) -> pd.DataFrame:
+    """Simulate constant model."""
     dfm = np.zeros((N, MLL_params.shape[0]))
     for i, params in enumerate(MLL_params.iterrows()):
         params = params[1]
         s2_e = params.max_s2_t_hat * params.max_delta
-        dfm[:, i] = np.random.normal(params.max_mu_hat, s2_e, N)
+        dfm[:, i] = np.random.default_rng().normal(params.max_mu_hat, s2_e, N)
 
-    dfm = pd.DataFrame(dfm)
-    return dfm
+    return pd.DataFrame(dfm)
 
 
 def get_mll_results(results, null_model="const"):
+    """Get MLL results."""
     null_lls = results.query(f'model == "{null_model}"')[["g", "max_ll"]]
     model_results = results.query(f'model != "{null_model}"')
     model_results = model_results[
@@ -328,7 +338,8 @@ def get_mll_results(results, null_model="const"):
 
 
 def dyn_de(X, exp_tab, kernel_space=None):
-    if kernel_space == None:
+    """Dynamic DE."""
+    if kernel_space is None:
         kernel_space = {"SE": [5.0, 25.0, 50.0]}
 
     results = []
@@ -408,7 +419,7 @@ def dyn_de(X, exp_tab, kernel_space=None):
 
     logging.info("Fitting gene models")
     n_models = len(US_mats)
-    for i, cov in enumerate(tqdm(US_mats, desc="Models: ")):
+    for _, cov in enumerate(tqdm(US_mats, desc="Models: ")):
         result = lengthscale_fits(exp_tab, cov["U"], cov["UT1"], cov["S"], cov["Gower"])
         result["l"] = cov["l"]
         result["M"] = cov["M"]
@@ -425,15 +436,15 @@ def dyn_de(X, exp_tab, kernel_space=None):
 
 
 def run(X, exp_tab, kernel_space=None):
-    """Perform SpatialDE test
+    """Perform SpatialDE test.
 
     X : matrix of spatial coordinates times observations
-    exp_tab : Expression table, assumed appropriatealy normalised.
+    exp_tab : Expression table, assumed appropriately normalized.
 
     The grid of covariance matrices to search over for the alternative
-    model can be specifiec using the kernel_space paramter.
+    model can be specifiec using the kernel_space parameter.
     """
-    if kernel_space == None:
+    if kernel_space is None:
         l_min, l_max = get_l_limits(X)
         kernel_space = {
             "SE": np.logspace(np.log10(l_min), np.log10(l_max), 10),
@@ -462,7 +473,7 @@ def model_search(X, exp_tab, DE_mll_results, kernel_space=None):
     By default searches a grid of periodic covariance matrices and a linear
     covariance matrix.
     """
-    if kernel_space == None:
+    if kernel_space is None:
         P_min, P_max = get_l_limits(X)
         kernel_space = {
             "PER": np.logspace(np.log10(P_min), np.log10(P_max), 10),
@@ -498,8 +509,6 @@ def model_search(X, exp_tab, DE_mll_results, kernel_space=None):
 
     # Retain information from significance testing in the new table
     transfer_columns = ["pval", "qval", "max_ll_null"]
-    ms_results = ms_results.drop(transfer_columns, 1).merge(
-        DE_mll_results[transfer_columns + ["g"]], on="g"
+    return ms_results.drop(transfer_columns, 1).merge(
+        DE_mll_results[[*transfer_columns, "g"]], on="g"
     )
-
-    return ms_results

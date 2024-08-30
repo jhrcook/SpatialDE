@@ -1,3 +1,5 @@
+"""Automatic Histology Analysis (AHA)."""
+
 import logging
 
 import numpy as np
@@ -7,16 +9,14 @@ from . import base
 
 
 def optimize_gp_params(Ymean, Yvar, Us, UT1s, Ss, Ks, N):
-    """Optimize GP parameters for pattern of (Ymean, Yvar)
-    over the covariance structure grid.
-    """
+    """Optimize GP params for pattern of (Ymean, Yvar) over the covariance grid."""
     ll_max = -np.inf
     top_k = 0
     par_max = [-np.inf, 1.0, 1.0]
     k = 0
-    for U, UT1, S, K in zip(Us, UT1s, Ss, Ks, strict=False):
+    for U, UT1, S, _ in zip(Us, UT1s, Ss, Ks, strict=False):
         UTy = base.get_UTy(U, Ymean[:, 0])
-        ll, delta, mu, s2s, _ = base.lbfgsb_max_LL(UTy, UT1, S, N, Yvar)
+        ll, delta, _, s2s, _ = base.lbfgsb_max_LL(UTy, UT1, S, N, Yvar)
 
         if ll > ll_max:
             ll_max = ll
@@ -31,12 +31,13 @@ def optimize_gp_params(Ymean, Yvar, Us, UT1s, Ss, Ks, N):
 
 
 def gp_smoothing(Ymean, Yvar, K, s2s, delta):
+    """GP smoothing."""
     noise_K = s2s * K + delta * s2s * np.diag(Yvar)
-    Y_hat = s2s * K.dot(np.linalg.solve(noise_K, Ymean))
-    return Y_hat
+    return s2s * K.dot(np.linalg.solve(noise_K, Ymean))  # calculate `Yhat`
 
 
-def aeh(X, Y, C, Ks=None, max_iter=10):
+def aeh(X, Y, C, Ks=None, max_iter: int = 10):
+    """Perform Automatic Histology Analysis (AHA)."""
     # We're only interested in patterns, so center data
     Y = (Y.T - Y.mean(1)).T
 
@@ -54,15 +55,13 @@ def aeh(X, Y, C, Ks=None, max_iter=10):
 
     # Initialize by random assignment
     idx = np.arange(G)
-    np.random.shuffle(idx)
+    np.random.default_rng().shuffle(idx)
     cidxs = np.array_split(idx, C)
     new_clusts = np.zeros(len(idx))
 
     for j in range(max_iter):
         finish = False
         Yhats = []
-        ll_sum = 0
-        params = []
         for genes in cidxs:
             if len(genes) == 0:
                 continue
@@ -111,18 +110,15 @@ def aeh(X, Y, C, Ks=None, max_iter=10):
 
 
 def spatial_patterns(X, exp_mat, DE_mll_results, C, max_iter=10, kernel_space=None):
-    """Group spatially variable genes into spatial patterns using automatic
-     histology analysis (AHA).
+    """Group SVG into spatial patterns using automatic histology analysis (AHA).
 
     Returns:
-    pattern_results : A DataFrame with pattern membership information
-        for each gene
+    pattern_results : A DataFrame with pattern membership information for each gene.
 
-    patterns : The spatial patterns underlying the expression values
-        for the genes in the given pattern.
-
+    patterns : The spatial patterns underlying the expression values for the genes in
+    the given pattern.
     """
-    if kernel_space == None:
+    if kernel_space is None:
         l_min, l_max = base.get_l_limits(X)
         l_range = np.logspace(np.log10(l_min), np.log10(l_max), 10)
 
@@ -131,7 +127,7 @@ def spatial_patterns(X, exp_mat, DE_mll_results, C, max_iter=10, kernel_space=No
     else:
         raise NotImplementedError("Custom kernels not supported for AEH.")
 
-    Y = exp_mat[DE_mll_results["g"]].values.T
+    Y = exp_mat[DE_mll_results["g"]].to_numpy().T
     N = Y.shape[1]
 
     patterns, cost, Yhats, ll = aeh(X, Y, C, Ks=Ks, max_iter=max_iter)

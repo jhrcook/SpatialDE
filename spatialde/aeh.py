@@ -1,3 +1,7 @@
+"""Automatic Expression Histology (AEH)."""
+
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy import optimize
@@ -8,6 +12,7 @@ from . import base
 
 
 def Q_Z_expectation(mu, Y, s2e, N, C, G, pi=None):
+    """Q(Z) expectation."""
     if pi is None:
         pi = np.ones(C) / C
 
@@ -18,31 +23,25 @@ def Q_Z_expectation(mu, Y, s2e, N, C, G, pi=None):
         - 0.5 * N * np.log(2 * np.pi)
     )
 
-    # Subtract max per row for numerical stability, and add offset from 0 for same reason.
+    # Subtract max per row and add offset from 0 for numerical stability.
     rho = np.exp(log_rho - log_rho.max(1)[:, None]) + 1e-12
     # Then evaluate softmax
-    r = (rho.T / (rho.sum(1))).T
-
-    return r
+    return (rho.T / (rho.sum(1))).T  # Calc. `r`.
 
 
 def Q_mu_k_expectation(Z_k, Y, K, s2e):
     y_k_tilde = np.dot(Z_k, Y) / s2e
     Sytk = np.dot(K, y_k_tilde)
     IpSDk = np.eye(K.shape[0]) + K * Z_k.sum() / s2e
-    m_k = np.linalg.solve(IpSDk, Sytk)
-
-    return m_k
+    return np.linalg.solve(IpSDk, Sytk)  # Calc. `m_k`.
 
 
 def Q_mu_expectation(Z, Y, K, s2e):
+    """Q(mu) expectation."""
     m = np.zeros((Y.shape[1], Z.shape[1]))
-
-    y_k_tilde = np.dot(Z.T, Y).T / s2e
-
+    # y_k_tilde = np.dot(Z.T, Y).T / s2e  # Included in original code-base by unused.
     for k in range(Z.shape[1]):
         m[:, k] = Q_mu_k_expectation(Z[:, k], Y, K, s2e)
-
     return m
 
 
@@ -50,8 +49,8 @@ def Q_mu_expectation(Z, Y, K, s2e):
 
 
 def ln_P_YZms(Y, Z, mu, s2e, pi=None):
-    """Expecation of ln P(Y | Z, mu, s2e)"""
-    G = Y.shape[0]
+    """Expecation of ln P(Y | Z, mu, s2e)."""
+    # G = Y.shape[0]  # Included in original codebase, but unused.
     N = Y.shape[1]
     C = Z.shape[1]
     if pi is None:
@@ -68,7 +67,7 @@ def ln_P_YZms(Y, Z, mu, s2e, pi=None):
 
 
 def ln_P_mu(mu, K):
-    """Expectation of ln P(mu)"""
+    """Expectation of ln P(mu)."""
     N = K.shape[0]
     C = mu.shape[1]
     ll = 0
@@ -77,13 +76,11 @@ def ln_P_mu(mu, K):
         ll = ll + mu[:, k].dot(np.linalg.solve(K, mu[:, k]))
         ll = ll + N * np.log(2 * np.pi)
 
-    ll = -0.5 * ll
-
-    return ll
+    return -0.5 * ll
 
 
 def ln_P_Z(Z, pi=None):
-    """Expectation of ln P(Z)"""
+    """Expectation of ln P(Z)."""
     C = Z.shape[1]
     if pi is None:
         pi = np.ones(C) / C
@@ -92,7 +89,7 @@ def ln_P_Z(Z, pi=None):
 
 
 def ln_Q_mu(K, Z, s2e):
-    """Expecation of ln Q(mu)"""
+    """Expecation of ln Q(mu)."""
     N = K.shape[0]
     C = Z.shape[1]
     G_k = Z.sum(0)
@@ -103,13 +100,11 @@ def ln_Q_mu(K, Z, s2e):
         ll = ll - (1.0 / S + G_k[k] / s2e).sum()
         ll = ll + N * np.log(2 * np.pi)
 
-    ll = -0.5 * ll
-
-    return ll
+    return -0.5 * ll
 
 
 def ln_Q_Z(Z, r):
-    """Expectation of ln Q(Z)"""
+    """Expectation of ln Q(Z)."""
     return np.sum(Z * np.log(r))
 
 
@@ -117,7 +112,8 @@ def ln_Q_Z(Z, r):
 
 
 def ELBO(Y, r, m, s2e, K, K_0, s2e_0, pi=None):
-    L = (
+    """Calculate evidence lower bound (ELBO)."""
+    return (
         ln_P_YZms(Y, r, m, s2e, pi)
         + ln_P_Z(r, pi)
         + ln_P_mu(m, K)
@@ -125,10 +121,10 @@ def ELBO(Y, r, m, s2e, K, K_0, s2e_0, pi=None):
         - ln_Q_mu(K_0, r, s2e_0)
     )
 
-    return L
-
 
 def make_elbojective(Y, r, m, X, K_0, s2e_0, pi=None):
+    """Make ELBO objective function."""
+
     def elbojective(log_s2e):
         return -ELBO(Y, r, m, np.exp(log_s2e), K_0, K_0, s2e_0, pi)
 
@@ -179,12 +175,12 @@ def fit_patterns(
     K = base.SE_kernel(X, l) + eps
 
     # Randomly initialize
-    r = np.random.uniform(size=(G, C))
+    r = np.random.default_rng().uniform(size=(G, C))
     r = r / r.sum(0)
 
     pi = r.sum(0) / G
 
-    m = np.random.normal(size=(N, C))
+    m = np.random.default_rng().normal(size=(N, C))
 
     elbo_0 = ELBO(Y, r, m, s2e, K, K, s2e, pi)
     elbo_1 = elbo_0
@@ -218,7 +214,7 @@ def fit_patterns(
                 print(f"ln(l): {np.log(l):0.2f}, ln(s2e): {np.log(s2e):.2f}")
 
             if verbosity > 2:
-                line1 = f"P(Y | Z, mu, s2e): {ln_P_YZms(Y, r, m, s2e, pi):0.2e}, P(Z): {ln_P_Z(r, pi):0.2e}, P(mu): {ln_P_mu(m, K):0.2e}"
+                line1 = f"P(Y | Z, mu, s2e): {ln_P_YZms(Y, r, m, s2e, pi):0.2e}, P(Z): {ln_P_Z(r, pi):0.2e}, P(mu): {ln_P_mu(m, K):0.2e}"  # noqa: E501
                 line2 = f"Q(Z): {ln_Q_Z(r, r):0.2e}, Q(mu): {ln_Q_mu(K, r, s2e):0.2e}"
                 print(line1 + "\n" + line2)
 
@@ -239,9 +235,10 @@ def fit_patterns(
     return final_elbo, m, r, s2e
 
 
-def spatial_patterns(X, exp_mat, DE_mll_results, C, l, **kwargs):
-    """Group spatially variable genes into spatial patterns using
-    automatic expression histology (AEH).
+def spatial_patterns(
+    X, exp_mat, DE_mll_results, C, l, **kwargs: Any
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Group SVG into spatial patterns using automatic expression histology (AEH).
 
     X : Spatial coordinates
 
@@ -252,16 +249,16 @@ def spatial_patterns(X, exp_mat, DE_mll_results, C, l, **kwargs):
 
     C : The number of spatial patterns
 
-    **kwards are passed on to the function fit_patterns()
+    **kwargs are passed on to the function fit_patterns()
 
     Returns:
     pattern_results : A DataFrame with pattern membership information
         for each gene
 
-    patterns : The posterior mean underlying expression for genes in
-        given spatial patterns.
+    patterns : The posterior mean underlying expression for genes in given spatial
+    patterns.
     """
-    Y = exp_mat[DE_mll_results["g"]].values.T
+    Y = exp_mat[DE_mll_results["g"]].to_numpy().T
 
     # This is important, we only care about co-expression, not absolute levels.
     Y = (Y.T - Y.mean(1)).T

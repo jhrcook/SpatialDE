@@ -1,16 +1,20 @@
+"""Utilities."""
+
 import scipy as sp
 from scipy import interpolate
 
 
 def qvalue(pv, pi0=None):
-    """Estimates q-values from p-values
-
-    This function is modified based on https://github.com/nfusi/qvalue
+    """Estimate q-values from p-values.
 
     Args:
-    ====
-    pi0: if None, it's estimated as suggested in Storey and Tibshirani, 2003.
+        pv (_type_): _description_
+        pi0 (_type_, optional): _description_. Defaults to None.
 
+    If `pi0` is `None`, it's estimated as suggested in Storey and Tibshirani, 2003.
+
+    Returns:
+        _type_: _description_
     """
     assert pv.min() >= 0 and pv.max() <= 1, "p-values should be between 0 and 1"
 
@@ -29,8 +33,8 @@ def qvalue(pv, pi0=None):
         pi0 = []
         lam = sp.arange(0, 0.90, 0.01)
         counts = sp.array([(pv > i).sum() for i in sp.arange(0, 0.9, 0.01)])
-        for l in range(len(lam)):
-            pi0.append(counts[l] / (m * (1 - lam[l])))
+        for i in range(len(lam)):
+            pi0.append(counts[i] / (m * (1 - lam[i])))
 
         pi0 = sp.array(pi0)
 
@@ -41,7 +45,7 @@ def qvalue(pv, pi0=None):
         if pi0 > 1:
             pi0 = 1.0
 
-    assert pi0 >= 0 and pi0 <= 1, "pi0 is not between 0 and 1: %f" % pi0
+    assert pi0 >= 0 and pi0 <= 1, f"pi0 is not between 0 and 1: {pi0}"
 
     p_ordered = sp.argsort(pv)
     pv = pv[p_ordered]
@@ -57,6 +61,4 @@ def qvalue(pv, pi0=None):
     qv[p_ordered] = qv_temp
 
     # reshape qvalues
-    qv = qv.reshape(original_shape)
-
-    return qv
+    return qv.reshape(original_shape)
